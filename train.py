@@ -17,13 +17,13 @@ import time
 #v_ego, v_lead, d_lead
 os.chdir("C:/Git/dynamic-follow-tf")
 
-with open("data/LSTM/x_train-gbergman", "r") as f:
+with open("data/LSTM/x_train", "r") as f:
     x_train = json.load(f)
 
-with open("data/LSTM/y_train-gbergman", "r") as f:
+with open("data/LSTM/y_train", "r") as f:
     y_train = json.load(f)
 
-NORM = True
+NORM = False
 if NORM:
     #x_train_copy = list(x_train)
     v_ego_scale = get_3d_min_max(x_train, 0)
@@ -59,8 +59,8 @@ else:
         print(x_train[idx])
         break'''
 
-opt = keras.optimizers.Adam(lr=0.001, decay=1e-6)
-#opt = keras.optimizers.Adadelta()
+#opt = keras.optimizers.Adam(lr=0.001, decay=1e-6)
+opt = keras.optimizers.Adadelta()
 #opt = keras.optimizers.RMSprop(0.001)
 
 '''model = Sequential([
@@ -82,7 +82,7 @@ opt = keras.optimizers.Adam(lr=0.001, decay=1e-6)
     Dense(1),
   ])'''
 
-model = Sequential()
+'''model = Sequential()
 model.add(CuDNNLSTM(40, input_shape=(x_train.shape[1:]), return_sequences=True))
 #model.add(Dropout(0.2))
 #model.add(BatchNormalization())
@@ -92,6 +92,15 @@ for i in range(4):
     #model.add(Dropout(0.2))
     #model.add(BatchNormalization())
 model.add(CuDNNLSTM(40))
+model.add(Dense(1))'''
+
+model = Sequential()
+model.add(Dense(256, input_shape=(x_train.shape[1:])))
+model.add(Flatten())
+for i in range(12):
+    model.add(Dense(256, activation="relu"))
+    #model.add(LeakyReLU())
+    #model.add(Dropout(0.1))
 model.add(Dense(1))
 
 
@@ -103,9 +112,9 @@ model.add(Dense(1, activation="linear"))'''
 
 model.compile(loss='mean_absolute_error', optimizer=opt, metrics=['mean_squared_error'])
 #tensorboard = TensorBoard(log_dir="logs/test-{}".format("30epoch"))
-model.fit(x_train, y_train, shuffle=True, batch_size=32, validation_split=.02, epochs=5) # callbacks=[tensorboard]
+model.fit(x_train, y_train, shuffle=True, batch_size=128, epochs=2) # callbacks=[tensorboard]
 
-data = [[0.04548478, 0.04523729, 0.04512114, 0.04488637, 0.04469746,
+'''data = [[0.04548478, 0.04523729, 0.04512114, 0.04488637, 0.04469746,
         0.04454154, 0.0443153 , 0.04414989, 0.04390321, 0.04371238,
         0.04350156, 0.04326949, 0.04317012, 0.0429304 , 0.04273162,
         0.04249655, 0.04220375, 0.04202759, 0.04182816, 0.04158718],
@@ -128,7 +137,7 @@ data = [[0.04548478, 0.04523729, 0.04512114, 0.04488637, 0.04469746,
 prediction=model.predict(np.asarray([data]))[0][0]  # should be 0.5
 
 #print((prediction - 0.5)*2.0) if NORM else print(prediction)
-print(prediction)
+print(prediction)'''
 
 
 #accur = list([list(i) for i in x_train])
@@ -158,10 +167,10 @@ except:
 
 #print(model.predict(np.asarray(test_data)))
 
-save_model = False
+save_model = True
 tf_lite = False
 if save_model:
-    model_name = "LSTM-gbergman"
+    model_name = "LSTM-dense"
     model.save("models/h5_models/"+model_name+".h5")
     if tf_lite:
         # convert model to tflite:

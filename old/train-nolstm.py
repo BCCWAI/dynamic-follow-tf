@@ -75,8 +75,8 @@ opt = keras.optimizers.Adadelta()
     Dense(1),
   ])'''
 
-layer_num=18
-nodes=186
+layer_num=12
+nodes=324
 a_function="relu"
 
 model = Sequential()
@@ -105,7 +105,7 @@ model.add(Dense(1))'''
 
 model.compile(loss='mean_absolute_error', optimizer=opt, metrics=['mean_squared_error'])
 #tensorboard = TensorBoard(log_dir="logs/{}-layers-{}-nodes-{}".format(layer_num, nodes, a_function))
-model.fit(x_train, y_train, shuffle=True, batch_size=2024, validation_split=0.001, epochs=1) #callbacks=[tensorboard])
+model.fit(x_train, y_train, shuffle=True, batch_size=256, validation_split=0.001, epochs=1) #callbacks=[tensorboard])
 
 #data = [norm(23.74811363, v_ego_scale), norm(-0.26912481, a_ego_scale), norm(15.10309029, v_lead_scale), norm(55.72000122, x_lead_scale), norm(-0.31268027, a_lead_scale)] #should be -0.5
 #prediction=model.predict(np.asarray([[norm(23.74811363, v_ego_scale), norm(15.10309029, v_lead_scale), norm(30.72000122, x_lead_scale)]]))[0][0]
@@ -114,9 +114,11 @@ model.fit(x_train, y_train, shuffle=True, batch_size=2024, validation_split=0.00
 #accur = list([list(i) for i in x_train])
 
 if NORM:
-    y = [model.predict(np.asarray([[norm(22.352, v_ego_scale), norm(22.352, v_lead_scale), norm(i, x_lead_scale), norm(0, a_lead_scale)]]))[0][0] for i in range(50)]
     x = [i for i in range(50)]
+    y = [model.predict(np.asarray([[norm(22.352, v_ego_scale), norm(22.352, v_lead_scale), norm(i, x_lead_scale), norm(0, a_lead_scale)]]))[0][0] for i in range(50)]
+    y2 = [model.predict(np.asarray([[norm(22.352, v_ego_scale), norm(i, v_lead_scale), norm(20, x_lead_scale), norm(0, a_lead_scale)]]))[0][0] for i in range(50)]
     plt.plot(x,y)
+    plt.plot(x,y2)
     plt.show()
 else:
     y = [model.predict(np.asarray([[17.8816, 17.8816, i, 0]]))[0][0] for i in range(40)]
@@ -148,7 +150,7 @@ print("Gas/brake spread: {}".format(sum([model.predict([[[random.uniform(0,1) fo
 
 #print(model.predict(np.asarray(test_data)))
 
-save_model = True
+save_model = False
 tf_lite = False
 if save_model:
     model_name = "gm-only"

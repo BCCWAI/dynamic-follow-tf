@@ -71,10 +71,11 @@ for line in d_data:  # do filtering
     #line[-1] = line[-1] / 4047.0  # only for corolla
     #line = [line[0], line[1], (line[2]-line[0]), line[3], line[4], line[5], line[6], line[7]] # this makes v_lead, v_rel instead
     driving_data.append(line)
-random.shuffle(driving_data)
+#random.shuffle(driving_data)
 
 split_leads=False
 if split_leads:
+    n = 10
     split_data = [[]]
     counter = 0
     for idx, i in enumerate(driving_data):
@@ -87,12 +88,12 @@ if split_leads:
     
     new_split_data = []
     for i in split_data:
-        if len(i) >= 20: # remove small amounts of data
+        if len(i) >= n: # remove small amounts of data
             new_split_data.append(i)
     
     x_train = []
     y_train = []
-    n = 20
+    
     # the following further splits the data into 20 sample sections for training
     for lead in new_split_data:
         '''if lead[0][0] > 4.4704:
@@ -103,7 +104,7 @@ if split_leads:
             continue
         
         lead_split = [lead[i * n:(i + 1) * n] for i in range((len(lead) + n - 1) // n)]
-        if lead_split[-1] != 20: # if last section isn't 20 samples, remove
+        if len(lead_split[-1]) != n: # if last section isn't 20 samples, remove
             del lead_split[-1]
         lead_split_x = [[x[:5] for x in i] for i in lead_split] # remove gas and brake from xtrain
         lead_split_y = [(i[-1][5] - i[-1][6]) for i in lead_split] #only (last) gas/brake
@@ -115,17 +116,17 @@ if split_leads:
         for x in i:
             if len(x) != 5:
                 print("uh oh")
-        if len(i) != 20:
+        if len(i) != n:
             print("Bad") # check for wrong sizes in array
     
     save_data = True
     if save_data:
-        with open("LSTM/x_train-gbergman", "w") as f:
+        with open("LSTM/x_train", "w") as f:
             json.dump(x_train, f)
-        with open("LSTM/y_train-gbergman", "w") as f:
+        with open("LSTM/y_train", "w") as f:
             json.dump(y_train, f)
 
-even_out=False
+even_out=True
 if even_out:  # makes number of gas/brake/nothing samples equal to min num of samples
     gas = [i for i in driving_data if i[5] - i[6] > 0]
     nothing = [i for i in driving_data if i[5] - i[6] == 0]
@@ -166,7 +167,7 @@ print("\nSamples from GM: {}, samples from other cars: {}".format(gm_counter, ot
 
 save_data = True
 if save_data:
-    save_dir="gm-only"
+    save_dir="model3"
     x_train = [i[:5] for i in driving_data]
     with open(save_dir+"/x_train", "w") as f:
         json.dump(x_train, f)
