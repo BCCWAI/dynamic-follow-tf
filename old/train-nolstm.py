@@ -4,6 +4,7 @@ import tensorflow as tf
 from keras.models import Sequential
 import keras
 from keras.layers import Dense, Dropout, LSTM, CuDNNLSTM, Activation, LeakyReLU
+from keras.layers.advanced_activations import ELU
 import numpy as np
 import random
 from normalizer_old_seq import norm
@@ -12,17 +13,47 @@ from sklearn.preprocessing import normalize
 import matplotlib.pyplot as plt
 #np.set_printoptions(threshold=np.inf)
 '''from numpy.random import seed
-seed(1)
+seed(5)
 from tensorflow import set_random_seed
-set_random_seed(1)'''
+set_random_seed(3)'''
+
+class Visualize(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs={}):
+        dist=23
+        x = [i+1 for i in range(41)]
+        y = [model.predict(np.asarray([[norm(dist, v_ego_scale), norm(0, a_ego_scale), norm(dist, v_lead_scale), norm(i+1, x_lead_scale), norm(0, a_lead_scale)]]))[0][0] for i in range(41)]
+        y2 = [model.predict(np.asarray([[norm(dist, v_ego_scale), norm(0, a_ego_scale), norm(i+1, v_lead_scale), norm(dist, x_lead_scale), norm(0, a_lead_scale)]]))[0][0] for i in range(41)]
+        
+        f1 = plt.figure(1)
+        if epoch==0:
+            plt.plot([0, 40], [.5, .5], '--', linewidth=1)
+            plt.plot([dist, dist], [.4, .6], '--', linewidth=1)
+        plt.plot(x,y,label='{}-node-{}-layers'.format(nodes, layer_num))
+        plt.title('distance')
+        plt.legend()
+        
+        f2 = plt.figure(2)
+        if epoch==0:
+            plt.plot([0, 40], [.5, .5], '--', linewidth=1)
+            plt.plot([dist, dist], [.3, .7], '--', linewidth=1)
+        plt.plot(x,y2,label='{}-node-{}-layers'.format(nodes, layer_num))
+        plt.title('velocity')
+        plt.legend()
+        #plt.xlabel('m/s - m')
+        #plt.ylabel('gas/brake percentage (0-1)')
+        plt.pause(.1)
+        print("Looking good?")
+        stop = input("[Y/n]: ")
+        if stop.lower()=="y":
+            model.stop_training = True
 
 #v_ego, v_lead, d_lead
 os.chdir("C:/Git/dynamic-follow-tf")
 
-with open("data/gm-only/x_train", "r") as f:
+with open("data/3model/x_train", "r") as f:
     x_train = json.load(f)
 
-with open("data/gm-only/y_train", "r") as f:
+with open("data/3model/y_train", "r") as f:
     y_train = json.load(f)
 #y_train = [i if i > 0.0 else i -0.125 for i in y_train]  # since I'm training with Volt, users usually have regen braking. when 'coasting' users are actually braking
 #y_train = [(i - 0.125) for i in y_train]
@@ -34,16 +65,16 @@ NORM = True
 if NORM:
     v_ego, v_ego_scale = (norm([i[0] for i in x_train]))
     a_ego, a_ego_scale = (norm([i[1] for i in x_train]))
-    v_lead, v_lead_scale = (norm([i[2] for i in x_train])) # not v_lead, v_rel actually
+    v_lead, v_lead_scale = (norm([i[2] for i in x_train]))
     x_lead, x_lead_scale = (norm([i[3] for i in x_train]))
     a_lead, a_lead_scale = (norm([i[4] for i in x_train]))
     
-    x_train = []
-    for idx, i in enumerate(v_ego):
-        #x_train.append([v_ego[idx], a_ego[idx], v_lead[idx], x_lead[idx], a_lead[idx]])
-        x_train.append([v_ego[idx], v_lead[idx], x_lead[idx], a_lead[idx]])
+    x_train = [[v_ego[idx], a_ego[idx], v_lead[idx], x_lead[idx], a_lead[idx]] for (idx, i) in enumerate(v_ego)]
+    #x_train.append([v_ego[idx], v_lead[idx], x_lead[idx], a_lead[idx]])
+    
     x_train = np.asarray(x_train)
     y_train = np.asarray([np.interp(i, [-1, 1], [0, 1]) for i in y_train])
+    #y_train = np.asarray(y_train)
 else:
     x_train = [[i[0], i[2], i[3], i[4]] for i in x_train]
     x_train = np.asarray(x_train)
@@ -56,9 +87,10 @@ else:
         print(x_train[idx])
         break'''
 
-#opt = keras.optimizers.Adam(lr=0.001, decay=1e-6)
+#opt = keras.optimizers.Adam(lr=0.00001, decay=1e-6)
 opt = keras.optimizers.Adadelta()
-#opt = keras.optimizers.RMSprop(0.001)
+#opt = keras.optimizers.SGD(lr=0.0001)
+#opt = keras.optimizers.RMSprop(0.0002)
 
 '''model = Sequential([
     Dense(5, activation="tanh", input_shape=(x_train.shape[1:])),
@@ -74,57 +106,64 @@ opt = keras.optimizers.Adadelta()
     Dense(8, activation="tanh"),
     Dense(1),
   ])'''
-
-layer_num=12
-nodes=324
-a_function="relu"
-
-model = Sequential()
-model.add(Dense(nodes, input_shape=(x_train.shape[1:])))
-for i in range(layer_num):
-    model.add(Dense(nodes, activation="relu"))
-    #model.add(LeakyReLU())
-    #model.add(Dropout(0.1))
-model.add(Dense(1))
-
-'''model = Sequential()
-model.add(Dense(4, input_shape=(x_train.shape[1:])))
-model.add(Dense(8, activation="relu"))
-model.add(Dense(16, activation="relu"))
-model.add(Dense(32, activation="relu"))
-model.add(Dense(48, activation="relu"))
-model.add(Dense(64, activation="relu"))
-model.add(Dense(64, activation="relu"))
-model.add(Dense(48, activation="relu"))
-model.add(Dense(32, activation="relu"))
-model.add(Dense(16, activation="relu"))
-model.add(Dense(8, activation="relu"))
-model.add(Dense(4, activation="relu"))
-model.add(Dense(1))'''
-
-
-model.compile(loss='mean_absolute_error', optimizer=opt, metrics=['mean_squared_error'])
-#tensorboard = TensorBoard(log_dir="logs/{}-layers-{}-nodes-{}".format(layer_num, nodes, a_function))
-model.fit(x_train, y_train, shuffle=True, batch_size=256, validation_split=0.001, epochs=1) #callbacks=[tensorboard])
-
-#data = [norm(23.74811363, v_ego_scale), norm(-0.26912481, a_ego_scale), norm(15.10309029, v_lead_scale), norm(55.72000122, x_lead_scale), norm(-0.31268027, a_lead_scale)] #should be -0.5
-#prediction=model.predict(np.asarray([[norm(23.74811363, v_ego_scale), norm(15.10309029, v_lead_scale), norm(30.72000122, x_lead_scale)]]))[0][0]
-#print((prediction - 0.5)*2.0)
-
-#accur = list([list(i) for i in x_train])
-
-if NORM:
-    x = [i for i in range(50)]
-    y = [model.predict(np.asarray([[norm(22.352, v_ego_scale), norm(22.352, v_lead_scale), norm(i, x_lead_scale), norm(0, a_lead_scale)]]))[0][0] for i in range(50)]
-    y2 = [model.predict(np.asarray([[norm(22.352, v_ego_scale), norm(i, v_lead_scale), norm(20, x_lead_scale), norm(0, a_lead_scale)]]))[0][0] for i in range(50)]
-    plt.plot(x,y)
-    plt.plot(x,y2)
-    plt.show()
-else:
-    y = [model.predict(np.asarray([[17.8816, 17.8816, i, 0]]))[0][0] for i in range(40)]
-    x = [i for i in range(40)]
-    plt.plot(x,y)
-    plt.show()
+#[12, 324]
+options=[[16, 396]]
+#counter=0
+for i in options:
+    layer_num=i[0]
+    nodes=i[1]
+    a_function="relu"
+    
+    model = Sequential()
+    model.add(Dense(5, activation=a_function, input_shape=(x_train.shape[1:])))
+    #model.add(Dropout(.1))
+    for i in range(layer_num):
+        model.add(Dense(nodes, activation=a_function))
+        #model.add(Dropout(.05))
+    model.add(Dense(1))
+        
+    
+    model.compile(loss='mean_squared_error', optimizer=opt, metrics=['mean_absolute_error'])
+    #tensorboard = TensorBoard(log_dir="logs/{}-layers-{}-nodes-{}".format(layer_num, nodes, a_function))
+    visualize = Visualize()
+    model.fit(x_train, y_train, shuffle=True, batch_size=64, epochs=20, callbacks=[visualize]) #callbacks=[tensorboard])
+    
+    #data = [norm(23.74811363, v_ego_scale), norm(-0.26912481, a_ego_scale), norm(15.10309029, v_lead_scale), norm(55.72000122, x_lead_scale), norm(-0.31268027, a_lead_scale)] #should be -0.5
+    #prediction=model.predict(np.asarray([[norm(23.74811363, v_ego_scale), norm(15.10309029, v_lead_scale), norm(30.72000122, x_lead_scale)]]))[0][0]
+    #print((prediction - 0.5)*2.0)
+    
+    #accur = list([list(i) for i in x_train])
+    
+    '''if NORM:
+        dist=23
+        x = [i+1 for i in range(41)]
+        y = [model.predict(np.asarray([[norm(dist, v_ego_scale), norm(0, a_ego_scale), norm(dist, v_lead_scale), norm(i+1, x_lead_scale), norm(0, a_lead_scale)]]))[0][0] for i in range(41)]
+        y2 = [model.predict(np.asarray([[norm(dist, v_ego_scale), norm(0, a_ego_scale), norm(i+1, v_lead_scale), norm(dist, x_lead_scale), norm(0, a_lead_scale)]]))[0][0] for i in range(41)]
+        
+        f1 = plt.figure(1)
+        if counter==0:
+            plt.plot([0, 40], [.5, .5], '--', linewidth=1)
+            plt.plot([dist, dist], [.4, .6], '--', linewidth=1)
+        plt.plot(x,y,label='{}-node-{}-layers'.format(nodes, layer_num))
+        plt.title('distance')
+        plt.legend()
+        
+        f2 = plt.figure(2)
+        if counter==0:
+            plt.plot([0, 40], [.5, .5], '--', linewidth=1)
+            plt.plot([dist, dist], [.3, .7], '--', linewidth=1)
+        plt.plot(x,y2,label='{}-node-{}-layers'.format(nodes, layer_num))
+        plt.title('velocity')
+        plt.legend()
+        #plt.xlabel('m/s - m')
+        #plt.ylabel('gas/brake percentage (0-1)')
+        plt.pause(.1)
+    else:
+        y = [model.predict(np.asarray([[17.8816, 17.8816, i, 0]]))[0][0] for i in range(40)]
+        x = [i for i in range(40)]
+        plt.plot(x,y)
+        plt.show()
+    counter+=1'''
     
 '''
 accuracy=[]
@@ -153,7 +192,7 @@ print("Gas/brake spread: {}".format(sum([model.predict([[[random.uniform(0,1) fo
 save_model = False
 tf_lite = False
 if save_model:
-    model_name = "gm-only"
+    model_name = "model3"
     model.save("models/h5_models/"+model_name+".h5")
     print("Saved model!")
     if tf_lite:

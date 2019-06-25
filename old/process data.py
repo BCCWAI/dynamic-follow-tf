@@ -13,26 +13,47 @@ data_dir = "D:\Resilio Sync\df"
 d_data = []
 gm_counter = 0
 other_counter = 0
+
+CHEVY = True
+REMOVE_COAST_CHEVY=False
+
+HONDA = True
+HOLDEN = True
+MINSIZE = 40000 #kb
 for folder in os.listdir(data_dir):
-    if any([sup_car in folder for sup_car in ["CHEVROLET VOLT PREMIER 2017", "HOLDEN ASTRA RS-V BK 2017", "gbergman"]]):
+    if any([sup_car in folder for sup_car in ["CHEVROLET VOLT PREMIER 2017"]]) and CHEVY:
         for filename in os.listdir(os.path.join(data_dir, folder)):
-            if os.path.getsize(os.path.join(os.path.join(data_dir, folder), filename)) > 40000: #if bigger than 40kb
+            if os.path.getsize(os.path.join(os.path.join(data_dir, folder), filename)) > MINSIZE: #if bigger than 40kb
+                #print(os.path.join(os.path.join(data_dir, folder), filename))
+                with open(os.path.join(os.path.join(data_dir, folder), filename), "r") as f:
+                    df = f.read().split("\n")
+                for line in df:
+                    if line != "" and "[" in line and "]" in line and len(line) >= 40:
+                        line=json.loads(line)
+                        if REMOVE_COAST_CHEVY and line[-2] + line[-3] == 0.0: # skip coasting samples since has regen
+                            continue
+                        gm_counter+=1
+                        d_data.append(line)
+    
+    elif any([sup_car in folder for sup_car in ["HOLDEN ASTRA RS-V BK 2017"]]) and HOLDEN:
+        for filename in os.listdir(os.path.join(data_dir, folder)):
+            if os.path.getsize(os.path.join(os.path.join(data_dir, folder), filename)) > MINSIZE: #if bigger than 40kb
                 #print(os.path.join(os.path.join(data_dir, folder), filename))
                 with open(os.path.join(os.path.join(data_dir, folder), filename), "r") as f:
                     df = f.read().split("\n")
                 for line in df:
                     if line != "" and "[" in line and "]" in line and len(line) >= 40:
                         gm_counter+=1
-                        d_data.append(ast.literal_eval(line))
+                        d_data.append(json.loads(line))
     
-    elif any([sup_car in folder for sup_car in ["HONDA CIVIC 2016 TOURING"]]):
+    elif any([sup_car in folder for sup_car in ["HONDA CIVIC 2016 TOURING"]]) and HONDA:
         for filename in os.listdir(os.path.join(data_dir, folder)):
-            if os.path.getsize(os.path.join(os.path.join(data_dir, folder), filename)) > 40000: #if bigger than 40kb
+            if os.path.getsize(os.path.join(os.path.join(data_dir, folder), filename)) > MINSIZE: #if bigger than 40kb
                 with open(os.path.join(os.path.join(data_dir, folder), filename), "r") as f:
                     df = f.read().split("\n")
                 for line in df:
                     if line != "" and "[" in line and "]" in line and len(line) >= 40:
-                        line = ast.literal_eval(line)
+                        line = json.loads(line)
                         if line[6] > 1.0 and line[0] < .01: # user brake skyrockets when car is stopped for some reason, though since we have data from gm, we can exclude this data from honda
                             pass
                         else:
@@ -62,7 +83,7 @@ driving_data = []
 for line in d_data:  # do filtering
     if line[0] < -0.22352 or sum(line) == 0: #or (sum(line[:3]) == 0):
         continue
-    if line[4] > 10 or line[4] < -10: # filter out crazy acceleration
+    if line[4] > 15 or line[4] < -15: # filter out crazy lead acceleration
         continue
     #line[0] = max(line[0], 0)
     #line[2] = max(line[2], 0)
@@ -131,9 +152,9 @@ if even_out:  # makes number of gas/brake/nothing samples equal to min num of sa
     gas = [i for i in driving_data if i[5] - i[6] > 0]
     nothing = [i for i in driving_data if i[5] - i[6] == 0]
     brake = [i for i in driving_data if i[5] - i[6] < 0]
-    to_remove_gas = len(gas) - min(len(gas), len(nothing), len(brake)) if len(gas) != min(len(gas), len(nothing), len(brake)) else 0
-    to_remove_nothing = len(nothing) - min(len(gas), len(nothing), len(brake)) if len(nothing) != min(len(gas), len(nothing), len(brake)) else 0
-    to_remove_brake = len(brake) - min(len(gas), len(nothing), len(brake)) if len(brake) != min(len(gas), len(nothing), len(brake)) else 0
+    to_remove_gas = 470117#len(gas) - min(len(gas), len(nothing), len(brake)) if len(gas) != min(len(gas), len(nothing), len(brake)) else 0
+    to_remove_nothing = 0#len(nothing) - min(len(gas), len(nothing), len(brake)) if len(nothing) != min(len(gas), len(nothing), len(brake)) else 0
+    to_remove_brake = 0#len(brake) - min(len(gas), len(nothing), len(brake)) if len(brake) != min(len(gas), len(nothing), len(brake)) else 0
     del gas[:to_remove_gas]
     del nothing[:to_remove_nothing]
     del brake[:to_remove_brake]
@@ -167,7 +188,7 @@ print("\nSamples from GM: {}, samples from other cars: {}".format(gm_counter, ot
 
 save_data = True
 if save_data:
-    save_dir="model3"
+    save_dir="3model"
     x_train = [i[:5] for i in driving_data]
     with open(save_dir+"/x_train", "w") as f:
         json.dump(x_train, f)
