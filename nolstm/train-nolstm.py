@@ -218,7 +218,7 @@ for i in options:
     model.compile(loss='mean_squared_error', optimizer=opt, metrics=['mae'])
     #tensorboard = TensorBoard(log_dir="logs/{}-layers-{}-nodes-{}".format(layer_num, nodes, a_function))
     visualize = Visualize()
-    model.fit(x_train, y_train, batch_size=2048, epochs=50, callbacks=[visualize]) #callbacks=[tensorboard])
+    model.fit(x_train, y_train, batch_size=4096, epochs=50, callbacks=[visualize]) #callbacks=[tensorboard])
     
     #data = [norm(23.74811363, v_ego_scale), norm(-0.26912481, a_ego_scale), norm(15.10309029, v_lead_scale), norm(55.72000122, x_lead_scale), norm(-0.31268027, a_lead_scale)] #should be -0.5
     #prediction=model.predict(np.asarray([[norm(23.74811363, v_ego_scale), norm(15.10309029, v_lead_scale), norm(30.72000122, x_lead_scale)]]))[0][0]
