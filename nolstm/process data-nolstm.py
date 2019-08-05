@@ -17,14 +17,14 @@ gm_counter = 0
 other_counter = 0
 
 CHEVY = True
-REMOVE_COAST_CHEVY=False
+REMOVE_COAST_CHEVY = False
 
-HONDA = False
+HONDA = True
 HOLDEN = True
-MINSIZE = 60000 #kb #40000
+MINSIZE = 40000 #kb #40000
 print("Loading data...")
 for folder in os.listdir(data_dir):
-    if any([sup_car in folder for sup_car in ["CHEVROLET VOLT PREMIER 2017"]]) and CHEVY:
+    if CHEVY and any([sup_car in folder for sup_car in ["CHEVROLET VOLT PREMIER 2017"]]):
         for filename in os.listdir(os.path.join(data_dir, folder)):
             if os.path.getsize(os.path.join(os.path.join(data_dir, folder), filename)) > MINSIZE: #if bigger than 40kb
                 #print(os.path.join(os.path.join(data_dir, folder), filename))
@@ -37,20 +37,20 @@ for folder in os.listdir(data_dir):
                         line = json.loads(line)
                     except:
                         continue
-                    line[0] = max(round(line[0], 12), 0.0)
-                    if not started and line[0] != 0.0:
+                    #line[0] = max(round(line[0], 12), 0.0)
+                    if not started and max(round(line[0], 12), 0.0) != 0.0:
                         started = True
                     if started:
                         if REMOVE_COAST_CHEVY and line[-2] + line[-3] == 0.0 and "gbergman" not in folder: # skip coasting samples since has regen
                             continue
-                        line[1] = round(line[1], 12) #a_ego
-                        line[2] = max(round(line[2], 12), 0.0)
-                        line[3] = max(round(line[3], 12), 0.0)
-                        line[4] = round(line[4], 12) #a_lead
+                        #line[1] = round(line[1], 12) #a_ego
+                        #line[2] = max(round(line[2], 12), 0.0)
+                        #line[3] = max(round(line[3], 12), 0.0)
+                        #line[4] = round(line[4], 12) #a_lead
                         gm_counter+=1
                         d_data.append(line)
     
-    elif any([sup_car in folder for sup_car in ["HOLDEN ASTRA RS-V BK 2017"]]) and HOLDEN:
+    elif HOLDEN and any([sup_car in folder for sup_car in ["HOLDEN ASTRA RS-V BK 2017"]]):
         for filename in os.listdir(os.path.join(data_dir, folder)):
             if os.path.getsize(os.path.join(os.path.join(data_dir, folder), filename)) > MINSIZE: #if bigger than 40kb
                 #print(os.path.join(os.path.join(data_dir, folder), filename))
@@ -63,18 +63,18 @@ for folder in os.listdir(data_dir):
                         line = json.loads(line)
                     except:
                         continue
-                    line[0] = max(round(line[0], 12), 0.0)
-                    if not started and line[0] != 0.0:
+                    #line[0] = max(round(line[0], 12), 0.0)
+                    if not started and max(round(line[0], 12), 0.0) != 0.0:
                         started = True
                     if started:
-                        line[1] = round(line[1], 12) #a_ego
-                        line[2] = max(round(line[2], 12), 0.0)
-                        line[3] = max(round(line[3], 12), 0.0)
-                        line[4] = round(line[4], 12) #a_lead
+                        #line[1] = round(line[1], 12) #a_ego
+                        #line[2] = max(round(line[2], 12), 0.0)
+                        #line[3] = max(round(line[3], 12), 0.0)
+                        #line[4] = round(line[4], 12) #a_lead
                         gm_counter+=1
                         d_data.append(line)
     
-    elif any([sup_car in folder for sup_car in ["HONDA CIVIC 2016 TOURING"]]) and HONDA:
+    elif HONDA and any([sup_car in folder for sup_car in ["HONDA CIVIC 2016 TOURING"]]):
         for filename in os.listdir(os.path.join(data_dir, folder)):
             if os.path.getsize(os.path.join(os.path.join(data_dir, folder), filename)) > MINSIZE: #if bigger than 40kb
                 with open(os.path.join(os.path.join(data_dir, folder), filename), "r") as f:
@@ -86,14 +86,14 @@ for folder in os.listdir(data_dir):
                         line = json.loads(line)
                     except:
                         continue
-                    line[0] = max(round(line[0], 12), 0.0)
-                    if not started and line[0] != 0.0:
+                    #line[0] = max(round(line[0], 12), 0.0)
+                    if not started and max(round(line[0], 12), 0.0) != 0.0:
                         started = True
                     if started:
-                        line[1] = round(line[1], 12) #a_ego
-                        line[2] = max(round(line[2], 12), 0.0)
-                        line[3] = max(round(line[3], 12), 0.0)
-                        line[4] = round(line[4], 12) #a_lead
+                        #line[1] = round(line[1], 12) #a_ego
+                        #ine[2] = max(round(line[2], 12), 0.0)
+                        #line[3] = max(round(line[3], 12), 0.0)
+                        #line[4] = round(line[4], 12) #a_lead
                         if line[-2] > 1.0 and line[0] < .01: # user brake skyrockets when car is stopped for some reason, though since we have data from gm, we can exclude this data from honda
                             pass
                         else:
@@ -122,9 +122,10 @@ for folder in os.listdir(data_dir):
 print("Filtering outliers...")        
 driving_data = []
 for line in d_data:  # do filtering
-    if line[0] < -0.22352 or sum(line) == 0: #or (sum(line[:3]) == 0):
+    max_accel = 15
+    if line[0] < 0.0 or sum(line) == 0: #or (sum(line[:3]) == 0):
         continue
-    if line[4] > 15 or line[4] < -15: # filter out crazy lead acceleration
+    if line[4] > max_accel or line[4] < -max_accel: # filter out crazy lead acceleration
         continue
     #line[0] = max(line[0], 0)
     #line[2] = max(line[2], 0)
@@ -133,12 +134,20 @@ for line in d_data:  # do filtering
     #line[-1] = line[-1] / 4047.0  # only for corolla
     #line = [line[0], line[1], (line[2]-line[0]), line[3], line[4], line[5], line[6], line[7]] # this makes v_lead, v_rel instead
     driving_data.append(line)
-random.shuffle(driving_data)
+#random.shuffle(driving_data)
 
 #dup_counter=0
 #tmp_data=[i[:5] for i in driving_data]
 #uniq = [i for i in tmp_data if tmp_data.count(i)>1]
 
+add_brake = False
+if add_brake:
+    to_add = int(len(driving_data) * 0.4)
+    print('To add: {}'.format(to_add))
+    brake_samples = [i for i in driving_data if i[-3] - i[-2] < -0.2]
+    print('Actually adding: {}'.format(len(brake_samples)))
+    random.shuffle(brake_samples)
+    driving_data += brake_samples[:to_add]
 
 even_out_vel = True
 if even_out_vel: # evens out data based on v_ego
@@ -155,11 +164,11 @@ if even_out_vel: # evens out data based on v_ego
             location = max([i for i in location if i!=None])+1
         velocity_split[location].append(line)
     
-    mod_val=10 #only remove data from first 5 vel sections
-    to_modify=velocity_split[:mod_val]
-    dont_modify=velocity_split[mod_val:]
+    mod_val=8 #only remove data from first 5 vel sections
+    to_modify=list(velocity_split[:mod_val])
+    dont_modify=list(velocity_split[mod_val:])
     
-    modified=[[]]*mod_val
+    modified = []
     
     even_out = True # evens out based on gas
     if even_out:
@@ -168,21 +177,20 @@ if even_out_vel: # evens out data based on v_ego
             nothing = [i for i in section if i[-3] - i[-2] == 0]
             brake = [i for i in section if i[-3] - i[-2] < 0]
             to_remove_gas = len(gas) - min(len(gas), len(nothing), len(brake)) if len(gas) != min(len(gas), len(nothing), len(brake)) else 0
+            #to_remove_gas = len(gas) - min(len(gas), len(brake)) if len(gas) != min(len(gas), len(brake)) else 0
             to_remove_nothing = len(nothing) - min(len(gas), len(nothing), len(brake)) if len(nothing) != min(len(gas), len(nothing), len(brake)) else 0
             to_remove_brake = len(brake) - min(len(gas), len(nothing), len(brake)) if len(brake) != min(len(gas), len(nothing), len(brake)) else 0
+            #to_remove_brake = len(brake) - min(len(gas), len(brake)) if len(brake) != min(len(gas), len(brake)) else 0
             del gas[:to_remove_gas]
             del nothing[:to_remove_nothing]
             del brake[:to_remove_brake]
+            modified.append([])
             modified[idx] = gas + brake + nothing
-            '''if idx==4:
-                print(section[54])
-                print(gas)
-                print(brake)
-                print(to_remove_gas)
-                print(to_remove_brake)'''
     else:
+        to_remove=len(to_modify[-1])
+        print(to_remove)
         for idx, section in enumerate(to_modify):
-            to_remove=len(to_modify[-1])
+            modified.append([])
             for idi, sample in enumerate(section):
                 if idi >= to_remove:
                     break
@@ -202,7 +210,7 @@ if even_out_vel: # evens out data based on v_ego
     #plt.show()
 
 
-even_out_gas=False
+even_out_gas = False
 if even_out_gas:  # makes number of gas/brake/nothing samples equal to min num of samples
     print("Evening out gas...")
     gas = [i for i in driving_data if i[-3] - i[-2] > 0]
@@ -232,10 +240,7 @@ if even_out_gas:  # makes number of gas/brake/nothing samples equal to min num o
     driving_data = gas + nothing + brake
     
 
-
-print(len(driving_data))
-print()
-#y_train = [i[5] - i[6] for i in driving_data]
+print("Total samples: {}".format(len(driving_data)))
 y_train = [i[-3] - i[-2] for i in driving_data] # since some samples have a_rel, get gas and brake from end of list
 print("Gas samples: {}".format(len([i for i in y_train if i > 0])))
 print("Coast samples: {}".format(len([i for i in y_train if i == 0])))
@@ -245,14 +250,17 @@ print("\nSamples from GM: {}, samples from other cars: {}".format(gm_counter, ot
 save_data = True
 if save_data:
     print("Saving data...")
-    save_dir="3model"
-    x_train = [i[:5] for i in driving_data]
+    save_dir="gm-only"
+    x_train = [i[:6] for i in driving_data] # include a_rel
     #x_train = [i[:2] + [i[2] - i[0]] + i[-2:] for i in x_train] # makes index 2 be relative velocity
     with open(save_dir+"/x_train", "wb") as f:
-        pickle.dump(x_train, f)
+        pickle.dump(np.array(x_train), f)
     with open(save_dir+"/y_train", "wb") as f:
-        pickle.dump(y_train, f)
-    os.remove(save_dir+"/normalized")
+        pickle.dump(np.array(y_train), f)
+    try:
+        os.remove(save_dir+"/normalized")
+    except:
+        pass
     print("Saved data!")
 
 '''driving_data = [i for idx, i in enumerate(driving_data) if 20000 < idx < 29000]

@@ -10,7 +10,7 @@ def norm(data, min_max=[]):
         #return [(i - d_min) / (d_max - d_min) for i in data], [d_min, d_max]
     else:
         y = [min_max[0], min_max[1]]
-        return np.interp(data, scale, y)
+        return np.interp(data, y, scale)
         #return (data - min_max[0]) / (min_max[1] - min_max[0])
 
 def get_3d_min_max(data, idx):

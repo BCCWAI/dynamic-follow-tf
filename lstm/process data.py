@@ -20,7 +20,7 @@ other_counter = 0
 CHEVY = False
 REMOVE_COAST_CHEVY=False
 
-HONDA = True
+HONDA = False
 HOLDEN = True
 MINSIZE = 40000 #kb
 for folder in os.listdir(data_dir):
@@ -123,7 +123,7 @@ driving_data = []
 for line in d_data:  # do filtering
     if line[0] < -0.22352 or sum(line) == 0: #or (sum(line[:3]) == 0):
         continue
-    if line[4] > 15 or line[4] < -15: # filter out crazy lead acceleration
+    if line[4] > 10 or line[4] < -10: # filter out crazy lead acceleration
         continue
     #line[0] = max(line[0], 0)
     #line[2] = max(line[2], 0)
@@ -133,11 +133,11 @@ for line in d_data:  # do filtering
     #line = [line[0], line[1], (line[2]-line[0]), line[3], line[4], line[5], line[6], line[7]] # this makes v_lead, v_rel instead
     driving_data.append(line)
 
-to_tokenize=False
+to_tokenize = True
 if to_tokenize:
     print("Tokenizing...")
     sys.stdout.flush()
-    seq_length = 20
+    seq_length = 40
     lead_split = [[]]
     counter = 0
     for idx, i in enumerate(driving_data):
@@ -156,11 +156,11 @@ if to_tokenize:
         print("Something is wrong with the tokenization...")
     
     print("After tokenizing, we have {} samples.".format(len(lead_tokenized)))
-    
-    x_train = [[x[:5] for x in i] for i in lead_tokenized] # keep only driving data
+    #x_train = [[x[:5] for x in i] for i in lead_tokenized] # keep only driving data
+    x_train = [[[x[0], x[2], x[3]] for x in i] for i in lead_tokenized] # keep only v_ego, v_lead, and x_lead
     y_train = [(i[-1][-3] - i[-1][-2]) for i in lead_tokenized] # last gas/brake val in sequence
     
-    even_out_gas = True
+    even_out_gas = False
     if even_out_gas:  # makes number of gas/brake/nothing samples equal to min num of samples
         gas = [idx for idx, i in enumerate(y_train) if i > 0.0]
         coast = [idx for idx, i in enumerate(y_train) if i == 0.0]
@@ -184,10 +184,10 @@ if to_tokenize:
         
     save_data = True
     if save_data:
-        with open("LSTM_new/x_train", "wb") as f:
-            pickle.dump(x_train, f)
-        with open("LSTM_new/y_train", "wb") as f:
-            pickle.dump(y_train, f)
+        with open("LSTM_fake/x_train", "wb") as f:
+            pickle.dump(np.array(x_train), f)
+        with open("LSTM_fake/y_train", "wb") as f:
+            pickle.dump(np.array(y_train), f)
         print("Saved data!")
     
     
@@ -245,7 +245,7 @@ if split_leads:
         with open("LSTM/y_train", "w") as f:
             json.dump(y_train, f)
 
-even_out_vel=True
+even_out_vel=False
 if even_out_vel: # evens out data based on v_ego
     #driving_data.sort(key = lambda x: x[0]) # sorts based on v_ego from smallest to largest
     max_vel=max([i[0] for i in driving_data])
@@ -285,7 +285,7 @@ if even_out_vel: # evens out data based on v_ego
     #plt.show()
 
 
-even_out_gas=True
+even_out_gas=False
 if even_out_gas:  # makes number of gas/brake/nothing samples equal to min num of samples
     gas = [i for i in driving_data if i[-3] - i[-2] > 0]
     nothing = [i for i in driving_data if i[-3] - i[-2] == 0]
@@ -328,7 +328,7 @@ if verbose:
 
 save_data = False
 if save_data:
-    save_dir="3model"
+    save_dir="LSTM_new"
     x_train = [i[:5] for i in driving_data]
     with open(save_dir+"/x_train", "w") as f:
         json.dump(x_train, f)
