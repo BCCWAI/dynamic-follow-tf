@@ -1,12 +1,21 @@
 import numpy as np
 scale = [0.0, 1.0] # wider scale might improve accuracy
+
+def interp(x, min_max):
+    return (x - min_max[0]) / (min_max[1] - min_max[0])
+
 def normX(data, data_scale=None):
     if data_scale==None:
-        v_ego = [i[0] for i in data]
+        #v_ego = [i[0] for i in data]
+        v_ego = np.take(data, indices=0, axis=1)
         #a_ego = [i[1] for i in data]
-        v_lead = [i[2] for i in data]
-        x_lead = [i[3] for i in data]
-        a_lead = [i[4] for i in data]
+        
+        #v_lead = [i[2] for i in data]
+        v_lead = np.take(data, indices=2, axis=1)
+        #x_lead = [i[3] for i in data]
+        x_lead = np.take(data, indices=3, axis=1)
+        #a_lead = [i[4] for i in data]
+        a_lead = np.take(data, indices=4, axis=1)
         #a_rel = [i[5] for i in data]
         
         v_ego_scale = [min(v_ego), max(v_ego)]
@@ -16,14 +25,12 @@ def normX(data, data_scale=None):
         a_lead_scale = [min(a_lead), max(a_lead)]
         #a_rel_scale = [min(a_rel), max(a_rel)]
         
-        #all: normalized = [[np.interp(i[0], v_ego_scale, scale), np.interp(i[1], a_ego_scale, scale), np.interp(i[2], v_lead_scale, scale), np.interp(i[3], x_lead_scale, scale), np.interp(i[4], a_lead_scale, scale), np.interp(i[5], a_rel_scale, scale)] for i in data]
-        normalized = [[np.interp(i[0], v_ego_scale, scale), np.interp(i[2], v_lead_scale, scale), np.interp(i[3], x_lead_scale, scale), np.interp(i[4], a_lead_scale, scale)] for i in data]
+        #normalized = [[np.interp(i[0], v_ego_scale, scale), np.interp(i[1], a_ego_scale, scale), np.interp(i[2], v_lead_scale, scale), np.interp(i[3], x_lead_scale, scale), np.interp(i[4], a_lead_scale, scale), np.interp(i[5], a_rel_scale, scale)] for i in data]
+        normalized = [[interp(i[0], v_ego_scale), interp(i[2], v_lead_scale), interp(i[3], x_lead_scale), interp(i[4], a_lead_scale)] for i in data]
         scales = {'v_ego_scale': v_ego_scale,
-                #'a_ego_scale': a_ego_scale,
                 'v_lead_scale': v_lead_scale,
                 'x_lead_scale': x_lead_scale,
                 'a_lead_scale': a_lead_scale
-                #'a_rel_scale': a_rel_scale
                 }
         return {'scales': scales, 'normalized': np.array(normalized)}
     else:

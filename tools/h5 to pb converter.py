@@ -1,8 +1,10 @@
+#from tensorflow.keras import backend as K
 from keras import backend as K
 import tensorflow as tf
 import os
 from keras.models import load_model
-os.chdir("C:/Git/dynamic-follow-tf/models")
+#from tensorflow.keras.models import load_model
+os.chdir("C:/Git/dynamic-follow-tf-v2/models")
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
@@ -34,8 +36,8 @@ def freeze_session(session, keep_var_names=None, output_names=None, clear_device
                                                       output_names, freeze_var_names)
         return frozen_graph
 
-tf.keras.backend.set_learning_phase(0)
-model_name = "gm-only-epoch-2"
+K.set_learning_phase(0)
+model_name = "live_tracks"
 model = load_model("h5_models/"+model_name+".h5")
 convert = True
 print([out.op.name for out in model.inputs])

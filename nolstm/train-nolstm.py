@@ -16,6 +16,8 @@ from sklearn import preprocessing
 import pickle
 from keras import backend as K
 import shutil
+from sklearn.model_selection import train_test_split
+import seaborn as sns
 
 #np.set_printoptions(threshold=np.inf)
 '''from numpy.random import seed
@@ -33,9 +35,9 @@ class Visualize(tf.keras.callbacks.Callback):
         if epoch % 1 == 0:
             accuracy = []
             for i in range(500):
-                choice = random.randint(0, len(x_train) - 2)
-                real = y_train[choice]
-                to_pred = x_train[choice]
+                choice = random.randint(0, len(x_test) - 2)
+                real = y_test[choice]
+                to_pred = x_test[choice]
                 pred = model.predict([[to_pred]])[0][0]
                 accuracy.append(abs(real-pred))
                 
@@ -81,12 +83,12 @@ class Visualize(tf.keras.callbacks.Callback):
             plt.figure(3)
             plt.clf()
             
-            pred_num = 500
+            pred_num = 100
             
             x = range(pred_num)
-            ground_y = [i for i in y_train[:pred_num]]
+            ground_y = [i for i in y_test[:pred_num]]
 
-            pred_y = [model.predict(np.asarray([i]))[0][0] for i in x_train[:pred_num]]
+            pred_y = [model.predict(np.asarray([i]))[0][0] for i in x_test[:pred_num]]
             
             plt.plot(x, ground_y, label='ground-truth')
             plt.plot(x, pred_y, label='epoch-{}'.format(epoch))
@@ -112,11 +114,11 @@ try:
 except:
     pass
 
-with open("data/x", "r") as f:
+'''with open("data/x", "r") as f:
     x_test = json.load(f)
 with open("data/y", "r") as f:
     y_test = json.load(f)
-    y_test = [np.interp(i, [-1, 1], [0, 1]) for i in y_test]
+    y_test = [np.interp(i, [-1, 1], [0, 1]) for i in y_test]'''
 
 
 if os.path.exists(norm_dir.format(data_dir)):
@@ -134,7 +136,7 @@ else:
         y_train = pickle.load(f)
     
     print("Normalizing data...")
-    normalized = normX(x_train.tolist())
+    normalized = normX(x_train)
     
     print("Dumping normalized data...")
     with open(norm_dir.format(data_dir), "wb") as f:
@@ -144,45 +146,52 @@ scales = normalized['scales']
 
 x_train = normalized['normalized']
 
-y_train = [np.interp(i, [-1, 1], [0, 1]) for i in y_train]
+y_train = np.array([np.interp(i, [-1, 1], [0, 1]) for i in y_train])
+
+plt.clf()
+sns.set_style('whitegrid')
+sns.kdeplot([i[0] for i in x_train], bw=0.01)
+plt.show()
+
+'''
+
+x_train, x_test, y_train, y_test = train_test_split(x_train, y_train, test_size=0.1)
 
 try:
     os.mkdir("models/h5_models/{}".format(model_name))
 except:
     pass
 
-opt = keras.optimizers.Adam(lr=0.0000004)#, decay=1e-6)
+opt = keras.optimizers.Adam(lr=0.0001)
 #opt = keras.optimizers.Adadelta(lr=.000375)
 #opt = keras.optimizers.SGD(lr=0.008, momentum=0.9)
-#opt = keras.optimizers.RMSprop(lr=0.0001, decay=1e-5)
-#opt = keras.optimizers.Adagrad(lr=0.0003)
+#opt = keras.optimizers.RMSprop(lr=0.00005)#, decay=1e-5)
+#opt = keras.optimizers.Adagrad(lr=0.00025)
+#opt = keras.optimizers.Adagrad(lr=0.001)
 #opt = 'adam'
 
-opt = 'rmsprop'
+#opt = 'rmsprop'
 #opt = keras.optimizers.Adadelta()
 
-options=[[8, 1024]] # good ones: [[8, 1000], [7, 2500], [4, 2048], [4, 4096]], best so far: [[3, 8096], [2, 8096]] (adadelta)
+options=[[4, 64]] # good ones: [[8, 1000], [7, 2500], [4, 2048], [4, 4096]], best so far: [[3, 8096], [2, 8096]] (adadelta)
 
 for i in options:
     layer_num=i[0] - 1
     nodes=i[1]
-    a_function="relu"
+    a_function = "relu"
     
     model = Sequential()
     model.add(Dense(nodes, activation=a_function, input_shape=(x_train.shape[1:])))
-    #model.add(Dropout(.2))
+    
     for i in range(layer_num):
         model.add(Dense(nodes, activation=a_function))
-        #model.add(Dropout(.2))
-    #model.add(Dense(nodes // 2, activation=a_function))
-    #model.add(Dropout(0.2))
-    model.add(Dense(1))
+    model.add(Dense(1, activation='linear'))
         
     
-    model.compile(loss='mean_squared_error', optimizer=opt, metrics=['mae'])
+    model.compile(loss='mean_squared_error', optimizer=opt)
     #tensorboard = TensorBoard(log_dir="logs/{}-layers-{}-nodes-{}".format(layer_num, nodes, a_function))
     visualize = Visualize()
-    model.fit(x_train, y_train, shuffle=True, batch_size=512, epochs=20, callbacks=[visualize]) #callbacks=[tensorboard])
+    model.fit(x_train, y_train, shuffle=True, batch_size=512, epochs=50, validation_data=(x_test, y_test), callbacks=[visualize]) #callbacks=[tensorboard])
 
 #print("Gas/brake spread: {}".format(sum([model.predict([[[random.uniform(0,1) for i in range(4)]]])[0][0] for i in range(10000)])/10000)) # should be as close as possible to 0.5
 
@@ -195,4 +204,4 @@ if save_model:
         # convert model to tflite:
         converter = tf.lite.TFLiteConverter.from_keras_model_file("models/h5_models/"+model_name+".h5")
         tflite_model = converter.convert()
-        open("models/lite_models/"+model_name+".tflite", "wb").write(tflite_model)
+        open("models/lite_models/"+model_name+".tflite", "wb").write(tflite_model)'''

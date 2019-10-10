@@ -6,6 +6,7 @@ import numpy as np
 import random
 import pickle
 import csv
+import time
 
 os.chdir("C:/Git/dynamic-follow-tf/data")
 '''with open("traffic-highway/df-data", "r") as f:
@@ -19,8 +20,8 @@ other_counter = 0
 CHEVY = True
 REMOVE_COAST_CHEVY = False
 
-HONDA = True
-HOLDEN = True
+HONDA = False
+HOLDEN = False
 MINSIZE = 40000 #kb #40000
 print("Loading data...")
 for folder in os.listdir(data_dir):
@@ -29,78 +30,93 @@ for folder in os.listdir(data_dir):
             if os.path.getsize(os.path.join(os.path.join(data_dir, folder), filename)) > MINSIZE: #if bigger than 40kb
                 #print(os.path.join(os.path.join(data_dir, folder), filename))
                 with open(os.path.join(os.path.join(data_dir, folder), filename), "r") as f:
-                    df = f.read().split("\n")
+                    df = [i for i in f.read().split("\n") if i != '']
                 
-                started = False
-                for line in df:
+                #df = [i for i in df if -1 <= (i[-3] - i[-2]) <= 1]
+                
+                use_data = False
+                num_iters = 0
+                max_len = 2000
+                for line in df: # this removes large sections of data where car is sitting at 0 m/s
                     try:
                         line = json.loads(line)
                     except:
                         continue
-                    #line[0] = max(round(line[0], 12), 0.0)
-                    if not started and max(round(line[0], 12), 0.0) != 0.0:
-                        started = True
-                    if started:
-                        if REMOVE_COAST_CHEVY and line[-2] + line[-3] == 0.0 and "gbergman" not in folder: # skip coasting samples since has regen
-                            continue
-                        #line[1] = round(line[1], 12) #a_ego
-                        #line[2] = max(round(line[2], 12), 0.0)
-                        #line[3] = max(round(line[3], 12), 0.0)
-                        #line[4] = round(line[4], 12) #a_lead
-                        gm_counter+=1
+                    if round(line[0], 8) == 0.0:
+                        num_iters += 1
+                    else:
+                        num_iters = 0
+                    if num_iters < max_len:
+                        use_data = True
+                    else:
+                        use_data = False
+                    
+                    if use_data:
                         d_data.append(line)
+                        gm_counter += 1 
     
     elif HOLDEN and any([sup_car in folder for sup_car in ["HOLDEN ASTRA RS-V BK 2017"]]):
         for filename in os.listdir(os.path.join(data_dir, folder)):
             if os.path.getsize(os.path.join(os.path.join(data_dir, folder), filename)) > MINSIZE: #if bigger than 40kb
                 #print(os.path.join(os.path.join(data_dir, folder), filename))
                 with open(os.path.join(os.path.join(data_dir, folder), filename), "r") as f:
-                    df = f.read().split("\n")
+                    df = [i for i in f.read().split("\n") if i != '']
                 
-                started = False
-                for line in df:
+                #df = [i for i in df if -1 <= (i[-3] - i[-2]) <= 1]
+                
+                use_data = False
+                num_iters = 0
+                max_len = 2000
+                for line in df: # this removes large sections of data where car is sitting at 0 m/s
                     try:
                         line = json.loads(line)
                     except:
                         continue
-                    #line[0] = max(round(line[0], 12), 0.0)
-                    if not started and max(round(line[0], 12), 0.0) != 0.0:
-                        started = True
-                    if started:
-                        #line[1] = round(line[1], 12) #a_ego
-                        #line[2] = max(round(line[2], 12), 0.0)
-                        #line[3] = max(round(line[3], 12), 0.0)
-                        #line[4] = round(line[4], 12) #a_lead
-                        gm_counter+=1
-                        d_data.append(line)
+                    if round(line[0], 8) == 0.0:
+                        num_iters += 1
+                    else:
+                        num_iters = 0
+                    if num_iters < max_len:
+                        use_data = True
+                    else:
+                        use_data = False
+                    
+                    if use_data:
+                        line[-2] = np.clip(line[-2], 0.0, 1.0) # sometimes goes neg when really no brake
+                        if -1 <= (line[-3] - line[-2]) <= 1: # make sure gas/brake is in range
+                            d_data.append(line)
+                            gm_counter += 1 
     
     elif HONDA and any([sup_car in folder for sup_car in ["HONDA CIVIC 2016 TOURING"]]):
         for filename in os.listdir(os.path.join(data_dir, folder)):
             if os.path.getsize(os.path.join(os.path.join(data_dir, folder), filename)) > MINSIZE: #if bigger than 40kb
                 with open(os.path.join(os.path.join(data_dir, folder), filename), "r") as f:
-                    df = f.read().split("\n")
+                    df = [i for i in f.read().split("\n") if i != '']
                 
-                started = False
-                for line in df:
+                #df = [i for i in df if -1 <= (i[-3] - i[-2]) <= 1]
+                
+                use_data = False
+                num_iters = 0
+                max_len = 2000
+                for line in df: # this removes large sections of data where car is sitting at 0 m/s
                     try:
                         line = json.loads(line)
                     except:
                         continue
-                    #line[0] = max(round(line[0], 12), 0.0)
-                    if not started and max(round(line[0], 12), 0.0) != 0.0:
-                        started = True
-                    if started:
-                        #line[1] = round(line[1], 12) #a_ego
-                        #ine[2] = max(round(line[2], 12), 0.0)
-                        #line[3] = max(round(line[3], 12), 0.0)
-                        #line[4] = round(line[4], 12) #a_lead
-                        if line[-2] > 1.0 and line[0] < .01: # user brake skyrockets when car is stopped for some reason, though since we have data from gm, we can exclude this data from honda
-                            pass
-                        else:
-                            line[-2] = np.clip(line[-2], 0.0, 1.0) # sometimes goes neg when really no brake
+                    if round(line[0], 8) == 0.0:
+                        num_iters += 1
+                    else:
+                        num_iters = 0
+                    if num_iters < max_len:
+                        use_data = True
+                    else:
+                        use_data = False
+                    
+                    if use_data:
+                        line[-2] = np.clip(line[-2], 0.0, 1.0) # sometimes goes neg when really no brake
+                        if -1 <= (line[-3] - line[-2]) <= 1: # make sure gas/brake is in range
                             d_data.append(line)
-                            other_counter+=1
-                        
+                            other_counter += 1 
     
     # the following should improve performance for deciding when and how much to apply gas (but might reduce braking performance)
     '''elif any([sup_car in folder for sup_car in ["TOYOTA COROLLA 2017", "TOYOTA PRIUS 2017", "TOYOTA RAV4 HYBRID 2017", "TOYOTA RAV4 2017"]]):
@@ -127,6 +143,8 @@ for line in d_data:  # do filtering
         continue
     if line[4] > max_accel or line[4] < -max_accel: # filter out crazy lead acceleration
         continue
+    if line[0] == 0 and line[1] == 0 and line[2] == 0 and (line[-3]+line[-2]) == 0:
+        continue
     #line[0] = max(line[0], 0)
     #line[2] = max(line[2], 0)
     #line[3] = max(line[3], 0)
@@ -149,13 +167,85 @@ if add_brake:
     random.shuffle(brake_samples)
     driving_data += brake_samples[:to_add]
 
-even_out_vel = True
+even_out_new = False
+
+if even_out_new:
+    print("Evening out vels...")
+    max_vel = max([i[0] for i in driving_data])
+    velocity_split = [[]]*10
+    vel_scales = [(max_vel/10)*(i+1) for i in range(10)]
+    for line in driving_data:
+        location = [idx if line[0]>i else None for idx,i in enumerate(vel_scales)][::-1]
+        if (len(set(location)) <= 1): # if below 4.105 m/s
+            location=0
+        else:
+            location = max([i for i in location if i!=None])+1
+        velocity_split[location].append(line)
+        
+    averages = [sum([(x[-3] - x[-2]) for x in i]) / len(i) if len(i) != 0 else 0 for i in velocity_split]
+    print("\nAverages of data split before:\n{}".format(averages), flush=True)
+    print("Before: {}".format([len(i) for i in velocity_split]))
+    
+    mod_val=5 #only remove data from first 5 vel sections
+    to_modify=list(velocity_split[:mod_val])
+    dont_modify=list(velocity_split[mod_val:])
+    
+    modified = []
+    
+    sections = [[0, .2], [.2, .4], [.4, .6], [.6, .8], [.8, 1.0]]
+    for idx, section in enumerate(to_modify):
+        ranges = [[]]*len(sections)
+        modified.append([])
+        for x in range(5):
+            ranges[x] = [i for i in section if sections[x][0] <= abs(i[-3] - i[-2]) < sections[x][1]]
+        
+        secs = []
+        for sec in ranges:
+            positive = [i for i in sec if i[-3] - i[-2] > 0]
+            negative = [i for i in sec if i[-3] - i[-2] < 0]
+            nothing = [i for i in sec if i[-3] - i[-2] == 0]
+            print(len(positive))
+            print(len(negative))
+            
+            to_remove_pos = len(positive) - min(len(positive), len(negative))
+            to_remove_neg = len(negative) - min(len(positive), len(negative))
+            
+            del positive[:to_remove_pos]
+            del negative[:to_remove_neg]
+            print(len(positive))
+            print(len(negative))
+            print()
+            
+            secs.append(positive + negative + nothing)
+        
+        modified.append([])
+        
+        for sec in secs:
+            for sample in sec:
+                modified[idx].append(sample)
+    
+    velocity_split = modified + dont_modify
+    averages = [sum([(x[-3] - x[-2]) for x in i]) / len(i) for i in velocity_split] # zero division error
+    print("\nAverages of data split after:\n{}\n".format(averages))
+    
+    
+    print("After: {}".format([len(i) for i in velocity_split]))
+    driving_data=[]
+    for section in velocity_split:
+        for sample in section:
+            driving_data.append(sample)
+    #speeds=[i[0] for i in driving_data]
+    #x=range(len(speeds))
+    #plt.hist(x,speeds)
+    #plt.show()
+
+even_out_vel = False
 if even_out_vel: # evens out data based on v_ego
     print("Evening out vels...")
     #driving_data.sort(key = lambda x: x[0]) # sorts based on v_ego from smallest to largest
-    max_vel=max([i[0] for i in driving_data])
-    velocity_split=[[] for i in range(10)]
-    vel_scales=[(max_vel/10)*(i+1) for i in range(10)]
+    max_vel = max([i[0] for i in driving_data])
+    velocity_split = [[] for i in range(10)]
+    vel_scales = [(max_vel/10)*(i+1) for i in range(10)]
     for line in driving_data:        
         location = [idx if line[0]>i else None for idx,i in enumerate(vel_scales)][::-1]
         if (len(set(location)) <= 1): # if below 4.105 m/s
@@ -163,41 +253,62 @@ if even_out_vel: # evens out data based on v_ego
         else:
             location = max([i for i in location if i!=None])+1
         velocity_split[location].append(line)
+        
+    averages = [sum([(x[-3] - x[-2]) for x in i]) / len(i) for i in velocity_split]
+    print("\nAverages of data split before:\n{}".format(averages), flush=True)
+    print("Before: {}".format([len(i) for i in velocity_split]))
     
-    mod_val=8 #only remove data from first 5 vel sections
+    '''velocity_split_averaged = []
+    desired_avg = 0.0
+    n = .8 # how close to get to desired_avg, lower is closer
+    even_threshold = .5 # only the samples below this value will get removed (-.2 or .2)
+    
+    for idx, section in enumerate(velocity_split):
+        velocity_split_averaged.append([])
+        dont_modify = [i for i in section if abs(i[-3] - i[-2]) >= even_threshold] # don't end up removing all drastic samples
+        mid = [i for i in section if abs(i[-3] - i[-2]) < even_threshold] # just remove from 'middle' section
+        std_dev = np.std([i[-3] - i[-2] for i in mid])
+        output = [x for x in mid if abs((x[-3] - x[-2]) - desired_avg) < std_dev * n]
+        velocity_split_averaged[idx] = output + dont_modify
+    
+    velocity_split = list(velocity_split_averaged)
+    averages = [sum([(x[-3] - x[-2]) for x in i]) / len(i) for i in velocity_split]
+    print("\nAverages of data split after:\n{}\n".format(averages))'''
+    
+    mod_val=5 #only remove data from first 5 vel sections
     to_modify=list(velocity_split[:mod_val])
     dont_modify=list(velocity_split[mod_val:])
     
     modified = []
     
-    even_out = True # evens out based on gas
-    if even_out:
-        for idx, section in enumerate(to_modify):
-            gas = [i for i in section if i[-3] - i[-2] > 0]
-            nothing = [i for i in section if i[-3] - i[-2] == 0]
-            brake = [i for i in section if i[-3] - i[-2] < 0]
-            to_remove_gas = len(gas) - min(len(gas), len(nothing), len(brake)) if len(gas) != min(len(gas), len(nothing), len(brake)) else 0
-            #to_remove_gas = len(gas) - min(len(gas), len(brake)) if len(gas) != min(len(gas), len(brake)) else 0
-            to_remove_nothing = len(nothing) - min(len(gas), len(nothing), len(brake)) if len(nothing) != min(len(gas), len(nothing), len(brake)) else 0
-            to_remove_brake = len(brake) - min(len(gas), len(nothing), len(brake)) if len(brake) != min(len(gas), len(nothing), len(brake)) else 0
-            #to_remove_brake = len(brake) - min(len(gas), len(brake)) if len(brake) != min(len(gas), len(brake)) else 0
-            del gas[:to_remove_gas]
-            del nothing[:to_remove_nothing]
-            del brake[:to_remove_brake]
-            modified.append([])
-            modified[idx] = gas + brake + nothing
-    else:
-        to_remove=len(to_modify[-1])
-        print(to_remove)
-        for idx, section in enumerate(to_modify):
-            modified.append([])
-            for idi, sample in enumerate(section):
-                if idi >= to_remove:
-                    break
-                modified[idx].append(sample)
+    do_old_mods = True
+    if do_old_mods:
+        even_out = True # evens out based on gas
+        if even_out:
+            for idx, section in enumerate(to_modify):
+                gas = [i for i in section if i[-3] - i[-2] > 0]
+                nothing = [i for i in section if i[-3] - i[-2] == 0]
+                brake = [i for i in section if i[-3] - i[-2] < 0]
+                to_remove_gas = len(gas) - min(len(gas), len(nothing), len(brake)) if len(gas) != min(len(gas), len(nothing), len(brake)) else 0
+                #to_remove_gas = len(gas) - min(len(gas), len(brake)) if len(gas) != min(len(gas), len(brake)) else 0
+                to_remove_nothing = len(nothing) - min(len(gas), len(nothing), len(brake)) if len(nothing) != min(len(gas), len(nothing), len(brake)) else 0
+                to_remove_brake = len(brake) - min(len(gas), len(nothing), len(brake)) if len(brake) != min(len(gas), len(nothing), len(brake)) else 0
+                #to_remove_brake = len(brake) - min(len(gas), len(brake)) if len(brake) != min(len(gas), len(brake)) else 0
+                del gas[:to_remove_gas]
+                del nothing[:to_remove_nothing]
+                del brake[:to_remove_brake]
+                modified.append([])
+                modified[idx] = gas + brake + nothing
+        else:
+            to_remove=len(to_modify[-1])
+            print(to_remove)
+            for idx, section in enumerate(to_modify):
+                modified.append([])
+                for idi, sample in enumerate(section):
+                    if idi >= to_remove:
+                        break
+                    modified[idx].append(sample)
     
-    
-    print("Before: {}".format([len(i) for i in velocity_split]))
     velocity_split=modified+dont_modify
     print("After: {}".format([len(i) for i in velocity_split]))
     driving_data=[]
@@ -216,11 +327,11 @@ if even_out_gas:  # makes number of gas/brake/nothing samples equal to min num o
     gas = [i for i in driving_data if i[-3] - i[-2] > 0]
     nothing = [i for i in driving_data if i[-3] - i[-2] == 0]
     brake = [i for i in driving_data if i[-3] - i[-2] < 0]
-    to_remove_gas = 1303221#len(gas) - min(len(gas), len(nothing), len(brake)) if len(gas) != min(len(gas), len(nothing), len(brake)) else 0
-    to_remove_nothing = 0#len(nothing) - min(len(gas), len(nothing), len(brake)) if len(nothing) != min(len(gas), len(nothing), len(brake)) else 0
-    to_remove_brake = 0#len(brake) - min(len(gas), len(nothing), len(brake)) if len(brake) != min(len(gas), len(nothing), len(brake)) else 0
-    del gas[:to_remove_gas]
-    del nothing[:to_remove_nothing]
+    to_remove_gas = len(gas) - min(len(gas), len(brake)) if len(gas) != min(len(gas), len(brake)) else 0
+    #to_remove_nothing = len(nothing) - min(len(gas), len(nothing), len(brake)) if len(nothing) != min(len(gas), len(nothing), len(brake)) else 0
+    to_remove_brake = len(brake) - min(len(gas), len(brake)) if len(brake) != min(len(gas), len(brake)) else 0
+    del gas[:int(to_remove_gas * 1.1)]
+    #del nothing[:to_remove_nothing]
     del brake[:to_remove_brake]
     
     do_mods=False
@@ -246,6 +357,10 @@ print("Gas samples: {}".format(len([i for i in y_train if i > 0])))
 print("Coast samples: {}".format(len([i for i in y_train if i == 0])))
 print("Brake samples: {}".format(len([i for i in y_train if i < 0])))
 print("\nSamples from GM: {}, samples from other cars: {}".format(gm_counter, other_counter))
+
+average_y = [i for i in y_train]
+average_y = sum(average_y) / len(average_y)
+print('Average of samples: {}'.format(average_y))
 
 save_data = True
 if save_data:
